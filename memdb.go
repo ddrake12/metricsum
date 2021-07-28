@@ -1,6 +1,7 @@
 package metricsum
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -33,7 +34,7 @@ func NewKeysMap() *KeysMap {
 	}
 }
 
-// values contains a list of all values for a given key. The mutex must be locked before reading/writing to the value/counter
+// values contains a list of all values for a given key. The mutex must be locked before reading/writing to the value/counter map
 type values struct {
 	valueToCounter map[int]int
 	valueMu        *sync.Mutex
@@ -104,4 +105,26 @@ func (km *KeysMap) startDeleteTimer(key interface{}, value int, reqTime time.Tim
 		}
 		vals.valueMu.Unlock()
 	}
+}
+
+func (km *KeysMap) getSum(key interface{}) (int, error) {
+	km.keyMu.Lock()
+	vals, ok := km.keyToValues[key]
+	if !ok {
+		km.keyMu.Unlock()
+		err := fmt.Errorf("did not find any values for key: %v", key)
+		km.logger.Printf(err.Error())
+		return 0, err
+	}
+	km.keyMu.Unlock()
+
+	sum := 0
+
+	vals.valueMu.Lock()
+	for val, counter := range vals.valueToCounter {
+		sum += val * counter
+	}
+	vals.valueMu.Unlock()
+
+	return sum, nil
 }

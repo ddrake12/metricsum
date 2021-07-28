@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	testKey     = "testKey"
-	diffKey     = "diffKey"
-	testValue   = 1
-	diffValue   = 2
-	testCounter = 2
+	testKey      = "testKey"
+	diffKey      = "diffKey"
+	testValue    = 1
+	diffValue    = 2
+	testCounter  = 2
+	diffCounter  = 4
+	testSum      = 12
+	testErrorStr = "testError"
 )
 
 // mockTimeAfter will stub out time after to return immediately. Also tests that given value is always 1 hour.
@@ -37,7 +40,7 @@ func mockLogger(km *KeysMap) *bytes.Buffer {
 	return &buf
 }
 
-// testDeleter is used to make sure startDeleteTimer is called
+// testDeleter is used to make sure startDeleteTimer is called, use newTestDeleter() to instantiate
 type testDeleter struct {
 	key     interface{}
 	value   int
@@ -210,9 +213,8 @@ func Test_KeysMap_startDeleteTimer(t *testing.T) {
 			buf := mockLogger(km)
 
 			if !tt.keyMapErr && !tt.valMapErr {
-				testMap := make(map[int]int)
-				testMap[testValue] = testCounter
-				km.keyToValues[testKey] = &values{testMap, &sync.Mutex{}}
+				makeTestValueMap(km)
+
 			} else if tt.valMapErr {
 				testMap := make(map[int]int)
 				km.keyToValues[testKey] = &values{testMap, &sync.Mutex{}}
@@ -231,6 +233,41 @@ func Test_KeysMap_startDeleteTimer(t *testing.T) {
 				values := km.keyToValues[testKey]
 				assert.Equal(t, testCounter-1, values.valueToCounter[testValue])
 			}
+		})
+	}
+}
+
+func makeTestValueMap(km *KeysMap) {
+	testMap := make(map[int]int)
+	testMap[testValue] = testCounter
+	km.keyToValues[testKey] = &values{testMap, &sync.Mutex{}}
+}
+
+func TestKeysMap_getSum(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"test valid sum", false},
+		{"test unknown key", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			km := NewKeysMap()
+			if !tt.wantErr {
+				makeTestValueMap(km)
+				km.keyToValues[testKey].valueToCounter[diffValue] = diffCounter
+			}
+
+			got, err := km.getSum(testKey)
+			if tt.wantErr {
+				assert.Contains(t, fmt.Sprintf("did not find any values for key: %v", testKey), err.Error())
+			} else {
+				want := testValue*testCounter + diffValue*diffCounter
+				assert.Equal(t, got, want)
+			}
+
 		})
 	}
 }

@@ -13,7 +13,7 @@ func main() {
 
 	keysMap := metricsum.NewKeysMap()
 	r.POST("/metric/{key}", keysMap.Metric)
-	// r.GET("/metric/{key}/sum", metricsum.Sum)
+	r.GET("/metric/{key}/sum", keysMap.Sum)
 
 	log.Fatal(fasthttp.ListenAndServe(":8080", r.Handler))
 }
